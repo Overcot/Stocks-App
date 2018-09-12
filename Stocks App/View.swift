@@ -8,13 +8,13 @@
 
 import UIKit
 
-class ViewController: UIViewController,UIPickerViewDataSource, UIPickerViewDelegate {
-
-    
-
-    
+class View: UIViewController,UIPickerViewDataSource, UIPickerViewDelegate {
 
     @IBOutlet weak var companyNameLabel: UILabel!
+    @IBOutlet weak var companySymbolLabel: UILabel!
+    @IBOutlet weak var priceLabel: UILabel!
+    @IBOutlet weak var priceChangeLabel: UILabel!
+    
     @IBOutlet weak var companyNamePicker: UIPickerView!
     @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
     
@@ -23,6 +23,11 @@ class ViewController: UIViewController,UIPickerViewDataSource, UIPickerViewDeleg
                                                "Google":"GOOG",
                                                "Amazon":"AMZN",
                                                "Facebook":"FB"]
+    private let numberOfComponentsInPicker = 1
+    
+    var controller: ControllerProtocol = Controller()
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -40,27 +45,33 @@ class ViewController: UIViewController,UIPickerViewDataSource, UIPickerViewDeleg
     }
 
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
-        return 1
+        return numberOfComponentsInPicker
     }
     
     func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        return self.companies.keys.count
+        return self.controller.numberOfCompanies()
     }
     
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        return Array(self.companies.keys)[row]
+        return self.controller.getCompanyNameForIndex(index: row)
     }
     
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
-
+        self.requestQuoteUpdate()
     }
+    
     private func requestQuoteUpdate() {
         self.activityIndicator.startAnimating()
         self.companyNameLabel.text = "-"
+        self.companySymbolLabel.text = "-"
+        self.priceLabel.text = "-"
+        self.priceChangeLabel.text = "-"
+        
         let selectedRow = self.companyNamePicker.selectedRow(inComponent: 0)
         let selectedSymbol = Array(self.companies.values)[selectedRow]
         requestQuote(for: selectedSymbol)
     }
+    
     private func requestQuote(for symbol: String) {
         let url = URL(string: "https://api.iextrading.com/1.0/stock/\(symbol)/quote")!
         
@@ -82,22 +93,31 @@ class ViewController: UIViewController,UIPickerViewDataSource, UIPickerViewDeleg
             let jsonObject = try JSONSerialization.jsonObject(with: data)
             guard
                 let json = jsonObject as? [String: Any],
-                let companyName = json["companyName"] as? String
+                let companyName = json["companyName"] as? String,
+                let companySymbol = json["symbol"] as? String,
+                let price = json["latestPrice"] as? Double,
+                let priceChange = json["change"] as? Double
             else {
                 print("Invalid JSON format")
                 return
             }
             DispatchQueue.main.async {
-                self.displayStockInfo(companyName: companyName)
+                self.displayStockInfo(companyName: companyName,
+                                      symbol: companySymbol,
+                                      price: price,
+                                      priceChange: priceChange)
             }
             print("Company name is: '\(companyName)'")
         } catch {
             print("JSON parsing error: " + error.localizedDescription)
         }
     }
-    private func displayStockInfo(companyName: String) {
+    private func displayStockInfo(companyName: String, symbol: String, price: Double, priceChange: Double) {
         self.activityIndicator.stopAnimating()
         self.companyNameLabel.text = companyName
+        self.companySymbolLabel.text = symbol
+        self.priceLabel.text = "\(price)"
+        self.priceChangeLabel.text = "\(priceChange)"
     }
 }
 
